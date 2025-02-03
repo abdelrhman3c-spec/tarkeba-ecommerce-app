@@ -1,33 +1,26 @@
-import mongoose from "mongoose";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+import { User } from './user.schema';
 
-export const AddressSchema = new mongoose.Schema({
-    userID: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-    },
-    street: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    city: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    state: {
-        type: String,
-        trim: true,
-    },
-    country: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    postalCode: {
-        type: String,
-        required: true,
-        trim: true,
-    }
-}, { timestamps: true });
+@Schema({ timestamps: true })
+export class Address extends Document {
+    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+    userID: User;
+
+    @Prop({ required: true, trim: true })
+    street: string;
+
+    @Prop({ required: true, trim: true })
+    city: string;
+
+    @Prop({ trim: true })
+    state: string;
+
+    @Prop({ required: true, trim: true })
+    country: string;
+
+    @Prop({ required: true, trim: true })
+    postalCode: string;
+}
+
+export const AddressSchema = SchemaFactory.createForClass(Address);

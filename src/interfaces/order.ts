@@ -1,7 +1,7 @@
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export interface Order extends Document {
-    userID: string;
+    userID: Types.ObjectId;
     totalPrice: number;
     status: string;
     address: string;

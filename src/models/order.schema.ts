@@ -1,32 +1,21 @@
-import mongoose from "mongoose";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+import { OrderStatus } from 'src/enums/order-status.enum';
 
-enum OrderStatus {
-    PENDING = "pending",
-    PROCESSING = "processing",
-    SHIPPED = "shipped",
-    DELIVERED = "delivered",
-    CANCELED = "canceled",
+
+@Schema({ timestamps: true })
+export class Order extends Document {
+    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+    userID: Types.ObjectId;
+
+    @Prop({ required: true, min: 0 })
+    totalPrice: number;
+
+    @Prop({ type: String, enum: Object.values(OrderStatus), default: OrderStatus.PENDING })
+    status: OrderStatus;
+
+    @Prop({ type: Types.ObjectId, ref: 'Address', required: true })
+    address: Types.ObjectId;
 }
 
-export const OrderSchema = new mongoose.Schema({
-    userID: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-    },
-    totalPrice: {
-        type: Number,
-        required: true,
-        min: 0,
-    },
-    status: {
-        type: String,
-        enum: Object.values(OrderStatus),
-        default: OrderStatus.PENDING,
-    },
-    address: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Address",
-        required: true,
-    },
-}, { timestamps: true });
+export const OrderSchema = SchemaFactory.createForClass(Order);

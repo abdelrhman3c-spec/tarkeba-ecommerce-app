@@ -1,19 +1,16 @@
-import mongoose from "mongoose";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
 
-export const CategorySchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-    },
-    description: {
-        type: String,
-        trim: true,
-    },
-    parentCategoryID: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Category",
-        default: null,
-    },
-}, { timestamps: true });
+@Schema({ timestamps: true })
+export class Category extends Document {
+    @Prop({ required: true, unique: true, trim: true })
+    name: string;
+
+    @Prop({ trim: true })
+    description: string;
+
+    @Prop({ type: Types.ObjectId, ref: 'Category', default: null })
+    parentCategoryID: Category;
+}
+
+export const CategorySchema = SchemaFactory.createForClass(Category);
