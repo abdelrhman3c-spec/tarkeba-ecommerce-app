@@ -1,24 +1,132 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Res, UnauthorizedException } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
+import { LoginDto } from './dto/login.dto';
+import { AccountLockService } from 'src/redis/account-lock.service';
+import { BlacklistService } from 'src/redis/blacklist.service';
+import { Role } from 'src/enums/user-roles.enum';
 
 @Injectable()
 export class AuthService {
-  constructor(private usersService: UsersService, private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private accountLockService: AccountLockService,
+    private blacklistService: BlacklistService,
+    private usersService: UsersService, 
+  ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.usersService.findUserByEmail(email);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      return { email: user.email, role: user.role };
-    }
-    throw new UnauthorizedException('Invalid credentials');
+  async login(loginDto: LoginDto, @Res() res: Response) {
+    const user = await this.validateUser(loginDto);
+    const accessToken = await this.generateAccessToken(user);
+    const refreshToken = await this.generateRefreshToken(user);
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
+      sameSite: 'strict',
+      path: '/auth/refresh',
+    });
+
+    return res.json({ accessToken });
   }
 
-  async login(user: any) {
-    const payload = { email: user.email, role: user.role };
-    return {
-      access_token: this.jwtService.sign(payload),
-    };
+  async validateUser(loginDto: LoginDto): Promise<any> {
+    const { email, password } = loginDto;
+
+    // Check if the account is locked
+    if (await this.accountLockService.isAccountLocked(email)) {
+      throw new UnauthorizedException('Account is locked. Try again later.');
+    }
+    
+    // Check if the user exists
+    const user = await this.usersService.findByEmail(email);
+    if (!user) throw new UnauthorizedException('Invalid email or password');
+
+
+    // verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      const attempts = await this.accountLockService.incrementFailedAttempts(email);
+      if (attempts >= 5) { // Lock after 5 failed attempts
+        await this.accountLockService.lockAccount(email);
+        throw new UnauthorizedException('Account locked due to too many failed attempts. Try again later.');
+      }
+  
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    await this.accountLockService.resetFailedAttempts(email);
+    return { userID: user._id, email: user.email, role: user.role };
+  }
+
+  async generateAccessToken(payload: {userID: string, email: string, role: Role}) {
+    return this.jwtService.sign({
+      userID: payload.userID,
+      email: payload.email,
+      role: payload.role,
+    });
+  }
+
+  async generateRefreshToken(payload: { userID: string, email: string, role: Role }) {
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: process.env.REFRESH_SECRET,
+      expiresIn: '7d',
+    });
+
+    // Save the refresh token in database
+    const hashedToken = await bcrypt.hash(refreshToken, 10);
+    await this.usersService.updateUser(payload.userID, { refreshToken: hashedToken });
+    return refreshToken;
+  }
+
+  async refreshAccessToken(refreshToken: string) {
+    try {
+      const decodedToken = this.jwtService.verify(refreshToken, { secret: process.env.REFRESH_SECRET });
+      const user = await this.usersService.findById(decodedToken.userID);
+
+      // Check if the user exists and has a refresh token
+      if (!user || !user.refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Check if the token has been revoked (blacklisted)
+      if(decodedToken.role !== Role.CUSTOMER) {
+        const isBlacklisted = await this.blacklistService.isTokenBlacklisted(refreshToken);
+        if (isBlacklisted) {
+          throw new UnauthorizedException('Token has been revoked');
+        }
+      }
+
+      return this.generateAccessToken(decodedToken);
+    } catch (err) {
+      console.log(err);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async logout(userID: string, role: Role, refreshToken: string, @Res() res: Response) {
+    // Decode the refresh token to extract its expiration time
+    const decodedToken = this.jwtService.decode(refreshToken) as { exp: number };
+    if (!decodedToken || !decodedToken.exp) return; // Invalid token
+    
+    // Delete the refresh token from the user document
+    await this.usersService.updateUser(userID, { refreshToken: null });
+    if (role !== Role.CUSTOMER) { // Only blacklist tokens for non-customer roles
+      const expiresIn = decodedToken.exp - Math.floor(Date.now() / 1000);
+      if (expiresIn > 0) { // Blacklist the token if it hasn't expired yet
+        await this.blacklistService.blacklistToken(refreshToken, expiresIn);
+      }
+    }
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/auth/refresh',
+    });
+
+    return res.status(200).json({ message: 'Logged out successfully' });
   }
 }

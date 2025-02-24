@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Roles } from 'src/enums/user-roles.enum';
+import { Role } from 'src/enums/user-roles.enum';
 import { Address } from 'src/interfaces/address';
 
 @Schema({ timestamps: true })
@@ -16,15 +16,18 @@ export class User extends Document {
 
     @Prop({
         type: String,
-        enum: Object.values(Roles),
-        default: Roles.CUSTOMER,
+        enum: Object.values(Role),
+        default: Role.CUSTOMER,
     })
-    role: Roles;
+    role: Role;
 
-    @Prop({ type: [{ type: Types.ObjectId, ref: 'Address' }] })
+    @Prop({ default: null })
+    refreshToken: string;
+
+    @Prop({ type: [{ type: Types.ObjectId, ref: 'Address' }], default: [] })
     addresses: Address[];
 
-    @Prop({ required: true })
+    @Prop({ required: false, default: null })
     phone: string;
 }
 
