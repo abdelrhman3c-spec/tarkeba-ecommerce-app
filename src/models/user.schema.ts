@@ -21,6 +21,15 @@ export class User extends Document {
     })
     role: Role;
 
+    @Prop()
+    verificationToken: string;
+    
+    @Prop()
+    tokenExpiration: Date;
+    
+    @Prop({ default: false })
+    isVerified: boolean;
+
     @Prop({ default: null })
     refreshToken: string;
 

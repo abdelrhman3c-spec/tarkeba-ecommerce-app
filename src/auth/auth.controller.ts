@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, ValidationPipe, UsePipes, Res, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, ValidationPipe, UsePipes, Res, Req, Query } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -17,6 +17,16 @@ export class AuthController {
   @UsePipes(ValidationPipe)
   async register(@Body() registerDto: RegisterDto) {
     return this.userService.register(registerDto);
+  }
+
+  @Get('verify')
+  async verify(@Query('token') token: string) {
+    return this.userService.verifyUser(token);
+  }
+
+  @Post('resend-verification')
+  async resendVerification(@Body() { email }) {
+    return this.userService.resendVerification(email);
   }
 
   @Post('login')
@@ -41,14 +51,7 @@ export class AuthController {
     await this.authService.logout(userID, role, refreshToken, res);
   }
 
-  // * ------------------ users profile ------------------ *//
-  @Get('profile')
-  @UseGuards(AuthGuard('jwt-access'))
-  getProfile(@Req() req: any) {
-    console.log(req.user);
-    return req.user;
-  }
-
+  // * ------------------ admin ------------------ *//
   @Get('admin')
   @UseGuards(AuthGuard('jwt-access'), RolesGuard)
   @Roles(Role.ADMIN)

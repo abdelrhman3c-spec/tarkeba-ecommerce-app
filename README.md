@@ -32,6 +32,15 @@
 $ npm install
 ```
 
+## Start Redis server
+Before running the project, make sure to start the Redis server:
+
+```bash
+$ sudo service redis-server start
+$ redis-cli
+```
+
+
 ## Compile and run the project
 
 ```bash

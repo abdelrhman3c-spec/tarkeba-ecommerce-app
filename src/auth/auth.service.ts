@@ -77,7 +77,7 @@ export class AuthService {
 
     // Save the refresh token in database
     const hashedToken = await bcrypt.hash(refreshToken, 10);
-    await this.usersService.updateUser(payload.userID, { refreshToken: hashedToken });
+    await this.usersService.updateRefreshToken(payload.userID, hashedToken);
     return refreshToken;
   }
 
@@ -112,7 +112,7 @@ export class AuthService {
     if (!decodedToken || !decodedToken.exp) return; // Invalid token
     
     // Delete the refresh token from the user document
-    await this.usersService.updateUser(userID, { refreshToken: null });
+    await this.usersService.updateRefreshToken(userID, null);
     if (role !== Role.CUSTOMER) { // Only blacklist tokens for non-customer roles
       const expiresIn = decodedToken.exp - Math.floor(Date.now() / 1000);
       if (expiresIn > 0) { // Blacklist the token if it hasn't expired yet
