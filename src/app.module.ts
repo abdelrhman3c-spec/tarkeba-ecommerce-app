@@ -7,6 +7,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { MailModule } from './mail/mail.module';
+import { AdminService } from './admin/admin.service';
+import { AdminModule } from './admin/admin.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }), 
@@ -14,10 +16,11 @@ import { MailModule } from './mail/mail.module';
     RedisModule,
     AuthModule, 
     UsersModule, 
-    MailModule,
+    MailModule, 
+    AdminModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, AdminService],
 })
 
 export class AppModule {}

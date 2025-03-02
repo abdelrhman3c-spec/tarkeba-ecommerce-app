@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -10,10 +10,11 @@ import { APP_GUARD } from '@nestjs/core';
 import { RolesGuard } from './roles.guard';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TokenService } from './token/token.service';
 
 @Module({
   imports: [
-    UsersModule,
+    forwardRef(() => UsersModule),
     PassportModule,
     RedisModule,
     JwtModule.registerAsync({
@@ -28,6 +29,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   controllers: [AuthController],
   providers: [
     AuthService, 
+    TokenService,
     JwtAccessStrategy, 
     JwtRefreshStrategy,
     {
@@ -35,6 +37,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       useClass: RolesGuard,
     },
   ],
+  exports: [TokenService],
 })
-
 export class AuthModule {}

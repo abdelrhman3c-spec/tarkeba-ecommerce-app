@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { AccountLockService } from 'src/redis/account-lock.service';
 import { BlacklistService } from 'src/redis/blacklist.service';
 import { Role } from 'src/enums/user-roles.enum';
+import { TokenService } from './token/token.service';
 
 @Injectable()
 export class AuthService {
@@ -14,13 +15,15 @@ export class AuthService {
     private jwtService: JwtService,
     private accountLockService: AccountLockService,
     private blacklistService: BlacklistService,
-    private usersService: UsersService, 
+    private usersService: UsersService,
+    private tokenService: TokenService,
   ) {}
 
   async login(loginDto: LoginDto, @Res() res: Response) {
     const user = await this.validateUser(loginDto);
-    const accessToken = await this.generateAccessToken(user);
-    const refreshToken = await this.generateRefreshToken(user);
+    const accessToken = await this.tokenService.generateAccessToken(user);
+    const { refreshToken, hashedToken } = await this.tokenService.generateRefreshToken(user);
+    await this.usersService.updateRefreshToken(user.userID, hashedToken);
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
@@ -59,51 +62,6 @@ export class AuthService {
 
     await this.accountLockService.resetFailedAttempts(email);
     return { userID: user._id, email: user.email, role: user.role };
-  }
-
-  async generateAccessToken(payload: {userID: string, email: string, role: Role}) {
-    return this.jwtService.sign({
-      userID: payload.userID,
-      email: payload.email,
-      role: payload.role,
-    });
-  }
-
-  async generateRefreshToken(payload: { userID: string, email: string, role: Role }) {
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: process.env.REFRESH_SECRET,
-      expiresIn: '7d',
-    });
-
-    // Save the refresh token in database
-    const hashedToken = await bcrypt.hash(refreshToken, 10);
-    await this.usersService.updateRefreshToken(payload.userID, hashedToken);
-    return refreshToken;
-  }
-
-  async refreshAccessToken(refreshToken: string) {
-    try {
-      const decodedToken = this.jwtService.verify(refreshToken, { secret: process.env.REFRESH_SECRET });
-      const user = await this.usersService.findById(decodedToken.userID);
-
-      // Check if the user exists and has a refresh token
-      if (!user || !user.refreshToken) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      // Check if the token has been revoked (blacklisted)
-      if(decodedToken.role !== Role.CUSTOMER) {
-        const isBlacklisted = await this.blacklistService.isTokenBlacklisted(refreshToken);
-        if (isBlacklisted) {
-          throw new UnauthorizedException('Token has been revoked');
-        }
-      }
-
-      return this.generateAccessToken(decodedToken);
-    } catch (err) {
-      console.log(err);
-      throw new UnauthorizedException('Invalid refresh token');
-    }
   }
 
   async logout(userID: string, role: Role, refreshToken: string, @Res() res: Response) {

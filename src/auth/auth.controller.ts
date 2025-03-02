@@ -8,10 +8,15 @@ import { RolesGuard } from './roles.guard';
 import { Role } from 'src/enums/user-roles.enum';
 import { Roles } from './roles.decorator';
 import { AuthGuard } from '@nestjs/passport';
+import { TokenService } from './token/token.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService, private userService: UsersService) {}
+  constructor(
+    private authService: AuthService, 
+    private userService: UsersService,
+    private tokenService: TokenService,
+  ) {}
 
   @Post('register')
   @UsePipes(ValidationPipe)
@@ -39,7 +44,7 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt-refresh'))
   async refreshToken(@Req() req: any) {
     const refreshToken = req.cookies['refreshToken'];
-    return this.authService.refreshAccessToken(refreshToken);
+    return this.tokenService.refreshAccessToken(refreshToken);
   }
 
   @Post('logout')

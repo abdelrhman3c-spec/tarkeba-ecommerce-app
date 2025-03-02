@@ -6,12 +6,14 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../models/user.schema';
 import { RegisterDto } from 'src/auth/dto/register.dto';
 import { MailService } from 'src/mail/mail.service';
+import { TokenService } from '../auth/token/token.service';
 
 @Injectable()
 export class UsersService {
     constructor(
         @InjectModel(User.name) private userModel: Model<User>,
         private mailService: MailService,
+        private tokenService: TokenService
     ) {}
 
     async findByEmail(email: string): Promise<User | null> {
@@ -20,13 +22,6 @@ export class UsersService {
     
     async findById(id: string): Promise<User | null> {
         return this.userModel.findById(id).exec();
-    }
-
-    generateVerificationToken(): { verificationToken: string, hashedToken: string, tokenExpiration: Date } {
-        const verificationToken = randomBytes(20).toString('hex');
-        const hashedToken = createHash('sha256').update(verificationToken).digest('hex');
-        const tokenExpiration = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-        return { verificationToken, hashedToken, tokenExpiration };
     }
 
     async register(registerDto: RegisterDto): Promise<User> {
@@ -40,7 +35,7 @@ export class UsersService {
             }
             
             const hashedPassword = await bcrypt.hash(password, 10);
-            const { verificationToken, hashedToken, tokenExpiration } = this.generateVerificationToken();
+            const { verificationToken, hashedToken, tokenExpiration } = this.tokenService.generateVerificationToken();
 
             // Create a new user
             const user = await this.userModel.create({ 
@@ -68,7 +63,7 @@ export class UsersService {
         if (user.isVerified) throw new BadRequestException('Email already verified');
 
         // Generate a new verification token
-        const { verificationToken, hashedToken, tokenExpiration } = this.generateVerificationToken();
+        const { verificationToken, hashedToken, tokenExpiration } = this.tokenService.generateVerificationToken();
 
         // Update the user document
         await this.userModel.findByIdAndUpdate(user._id, { verificationToken: hashedToken, tokenExpiration }).exec();
