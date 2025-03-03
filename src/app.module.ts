@@ -9,6 +9,7 @@ import { RedisModule } from './redis/redis.module';
 import { MailModule } from './mail/mail.module';
 import { AdminService } from './admin/admin.service';
 import { AdminModule } from './admin/admin.module';
+import { OrdersController } from './orders/orders.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }), 
@@ -19,7 +20,7 @@ import { AdminModule } from './admin/admin.module';
     MailModule, 
     AdminModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, OrdersController],
   providers: [AppService, AdminService],
 })
 

@@ -7,10 +7,12 @@ import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import { UsersModule } from '../users/users.module';
 import { RedisModule } from 'src/redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
-import { RolesGuard } from './roles.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TokenService } from './token/token.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { VerifiedGuard } from './guards/verified.guard';
 
 @Module({
   imports: [
@@ -32,11 +34,10 @@ import { TokenService } from './token/token.service';
     TokenService,
     JwtAccessStrategy, 
     JwtRefreshStrategy,
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
+    JwtAuthGuard,
+    RolesGuard,
+    VerifiedGuard,
   ],
-  exports: [TokenService],
+  exports: [JwtAuthGuard, JwtAccessStrategy, RolesGuard, TokenService],
 })
 export class AuthModule {}

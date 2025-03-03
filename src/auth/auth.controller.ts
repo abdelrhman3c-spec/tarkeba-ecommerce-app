@@ -4,9 +4,6 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { RolesGuard } from './roles.guard';
-import { Role } from 'src/enums/user-roles.enum';
-import { Roles } from './roles.decorator';
 import { AuthGuard } from '@nestjs/passport';
 import { TokenService } from './token/token.service';
 
@@ -55,14 +52,4 @@ export class AuthController {
     console.log(refreshToken);
     await this.authService.logout(userID, role, refreshToken, res);
   }
-
-  // * ------------------ admin ------------------ *//
-  @Get('admin')
-  @UseGuards(AuthGuard('jwt-access'), RolesGuard)
-  @Roles(Role.ADMIN)
-  adminOnly(@Req() req: any) {
-    return { message: 'Welcome, Admin!', user: req.user };
-  }
-
-  // * -------------------------------------------------- * //
 }

@@ -32,7 +32,7 @@ export class AuthService {
       path: '/auth/refresh',
     });
 
-    return res.json({ accessToken });
+    return res.json({ accessToken, refreshToken });
   }
 
   async validateUser(loginDto: LoginDto): Promise<any> {

@@ -6,6 +6,10 @@ export interface User extends Document {
     email: string;
     readonly password: string;
     role: Role;
+    verificationToken: string;
+    tokenExpiration: Date;
+    isVerified: boolean;
+    refreshToken: string;
     addresses: string[];
     phone: string;
 }

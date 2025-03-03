@@ -48,6 +48,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
       userID: payload.userID,
       email: payload.email,
       role: payload.role,
+      isVerified: payload.isVerified,
       refreshToken,
     };
   }

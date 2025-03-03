@@ -22,15 +22,11 @@ export class TokenService {
         return { verificationToken, hashedToken, tokenExpiration };
     }
 
-    async generateAccessToken(payload: {userID: string, email: string, role: Role}) {
-        return this.jwtService.sign({
-            userID: payload.userID,
-            email: payload.email,
-            role: payload.role,
-        });
+    async generateAccessToken(payload: { userID: string, email: string, role: Role, isVerified: boolean }) {
+        return this.jwtService.sign(payload);
     }
 
-    async generateRefreshToken(payload: { userID: string, email: string, role: Role }) {
+    async generateRefreshToken(payload: { userID: string, email: string, role: Role, isVerified: boolean }) {
         const refreshToken = this.jwtService.sign(payload, {
             secret: process.env.REFRESH_SECRET,
             expiresIn: '7d',
@@ -41,27 +37,22 @@ export class TokenService {
     }
 
     async refreshAccessToken(refreshToken: string) {
-        try {
-          const decodedToken = this.jwtService.verify(refreshToken, { secret: process.env.REFRESH_SECRET });
-          const user = await this.usersService.findById(decodedToken.userID);
-    
-          // Check if the user exists and has a refresh token
-          if (!user || !user.refreshToken) {
-            throw new UnauthorizedException('Invalid refresh token');
-          }
-    
-          // Check if the token has been revoked (blacklisted)
-          if(decodedToken.role !== Role.CUSTOMER) {
-            const isBlacklisted = await this.blacklistService.isTokenBlacklisted(refreshToken);
-            if (isBlacklisted) {
-              throw new UnauthorizedException('Token has been revoked');
-            }
-          }
-    
-          return this.generateAccessToken(decodedToken);
-        } catch (err) {
-          console.log(err);
-          throw new UnauthorizedException('Invalid refresh token');
+      const decodedToken = this.jwtService.verify(refreshToken, { secret: process.env.REFRESH_SECRET });
+      const user = await this.usersService.findById(decodedToken.userID);
+
+      // Check if the token has been revoked (blacklisted)
+      if(decodedToken.role !== Role.CUSTOMER) {
+        const isBlacklisted = await this.blacklistService.isTokenBlacklisted(refreshToken);
+        if (isBlacklisted) {
+          throw new UnauthorizedException('Token has been revoked');
         }
+      }
+
+      // Check if the user exists and has a refresh token
+      if (!user || !user.refreshToken) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      return this.generateAccessToken(decodedToken);
     }
 }
