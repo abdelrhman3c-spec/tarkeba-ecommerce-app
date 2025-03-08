@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./logo.png" width="120" alt="Nest Logo" />
+  <img src="./logo.png" width="300" alt="tarkeba-logo" />
 </p>
 
 [circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
