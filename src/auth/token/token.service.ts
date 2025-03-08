@@ -1,7 +1,8 @@
-import { forwardRef, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Res, UnauthorizedException } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { Response } from 'express';
 import { Role } from '../../enums/user-roles.enum';
 import { BlacklistService } from '../../redis/blacklist.service';
 import { UsersService } from 'src/users/users.service';
@@ -22,6 +23,12 @@ export class TokenService {
         return { verificationToken, hashedToken, tokenExpiration };
     }
 
+    generateResetToken() {
+      const resetToken = randomBytes(32).toString('hex');
+      const hashedToken = createHash('sha256').update(resetToken).digest('hex');
+      return { resetToken, hashedToken };
+    }
+
     async generateAccessToken(payload: { userID: string, email: string, role: Role, isVerified: boolean }) {
         return this.jwtService.sign(payload);
     }
@@ -34,6 +41,11 @@ export class TokenService {
     
         const hashedToken = await bcrypt.hash(refreshToken, 10);
         return {refreshToken, hashedToken};
+    }
+
+    verifyResetToken(token: string, hashedToken: string) {
+      const tokenHash = createHash('sha256').update(token).digest('hex');
+      return tokenHash === hashedToken;
     }
 
     async refreshAccessToken(refreshToken: string) {
@@ -54,5 +66,20 @@ export class TokenService {
       }
 
       return this.generateAccessToken(decodedToken);
+    }
+
+    async setUserTokens(user: any, @Res() res: Response) {
+      const accessToken = await this.generateAccessToken(user);
+      const { refreshToken, hashedToken } = await this.generateRefreshToken(user);
+      await this.usersService.updateRefreshToken(user.userID, hashedToken);
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/auth/refresh',
+      });
+
+      return res.json({ accessToken, refreshToken });
     }
 }

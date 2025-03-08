@@ -4,9 +4,11 @@ import { Model } from 'mongoose';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { User } from '../models/user.schema';
+import { User as UserInterface } from '../interfaces/user'
 import { RegisterDto } from 'src/auth/dto/register.dto';
 import { MailService } from 'src/mail/mail.service';
 import { TokenService } from '../auth/token/token.service';
+import { GoogleUserDto } from 'src/auth/dto/google-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +26,15 @@ export class UsersService {
         return this.userModel.findById(id).exec();
     }
 
+    async findByResetToken(token: string): Promise<User | null> {
+        const hashedToken = createHash('sha256').update(token).digest('hex');
+        return this.userModel.findOne({ resetToken: hashedToken }).exec();
+    }
+
+    async updateUser(userID: string, userInfo: any) {
+        return this.userModel.findByIdAndUpdate(userID, userInfo, { new: true }).exec();
+    }
+
     async register(registerDto: RegisterDto): Promise<User> {
         try {
             const { name, email, password } = registerDto;
@@ -38,40 +49,30 @@ export class UsersService {
             const { verificationToken, hashedToken, tokenExpiration } = this.tokenService.generateVerificationToken();
 
             // Create a new user
-            const user = await this.userModel.create({ 
+            const userInfo = { 
                 name, 
                 email, 
                 password: hashedPassword, 
                 verificationToken: hashedToken, 
                 tokenExpiration
-            });
+            };
+            const user = await this.createUser(userInfo);
 
             // Send verification email
             await this.mailService.sendVerificationEmail(email, verificationToken);
 
             return user;
         } catch (err) {
-            console.log(err.message);
+            console.log(err);
             throw new InternalServerErrorException('Database error occurred');
         }
     }
 
-    async resendVerification(email: string): Promise<{ message: string }> {
-        const user = await this.userModel.findOne({ email });
-        
-        if (!user) throw new NotFoundException('Email not found');
-        if (user.isVerified) throw new BadRequestException('Email already verified');
-
-        // Generate a new verification token
-        const { verificationToken, hashedToken, tokenExpiration } = this.tokenService.generateVerificationToken();
-
-        // Update the user document
-        await this.userModel.findByIdAndUpdate(user._id, { verificationToken: hashedToken, tokenExpiration }).exec();
-
-        // Send the verification email
-        await this.mailService.sendVerificationEmail(email, verificationToken);
-
-        return { message: 'Verification email sent' };
+    // TODO: change the argument type
+    async createUser(userObject: any) {
+        // Create a new user
+        const user = await this.userModel.create(userObject);
+        return user;
     }
 
     async verifyUser(token: string): Promise<{ message: string }> {
@@ -102,10 +103,36 @@ export class UsersService {
 
     async updateRefreshToken(userID: string, refreshToken: string | null) {
         try {
-            return this.userModel.findByIdAndUpdate(userID, { refreshToken }, { new: true }).exec();
+            return this.updateUser(userID, { refreshToken });
         } catch (err) {
-            console.log(err.message);
+            console.log(err);
             throw new InternalServerErrorException('Database error occurred');
         }
+    }
+
+    async linkGoogleAccount(userID: string, googleUser: GoogleUserDto) {
+        try {
+            return this.updateUser(userID, googleUser);
+        } catch (err) {
+            console.log(err);
+            throw new InternalServerErrorException('Database error occurred');
+        }
+    }
+
+    async setVerificationToken(userID: string, verificationToken: string, tokenExpiration: Date) {
+        await this.userModel.findByIdAndUpdate(userID, { verificationToken, tokenExpiration }).exec();
+    }
+
+    async setResetToken(userID: string, resetToken: string, resetExpires: Date) {
+        await this.userModel.findByIdAndUpdate(userID, { resetToken, resetExpires }).exec();
+    }
+
+    async setNewPassword(userID: string, password: string) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await this.userModel.findByIdAndUpdate(userID, { password: hashedPassword }).exec();
+    }
+
+    async clearResetToken(userID: string) {
+        await this.userModel.findByIdAndUpdate(userID, { resetToken: null, resetExpires: null }).exec();
     }
 }

@@ -8,6 +8,10 @@ import { AccountLockService } from 'src/redis/account-lock.service';
 import { BlacklistService } from 'src/redis/blacklist.service';
 import { Role } from 'src/enums/user-roles.enum';
 import { TokenService } from './token/token.service';
+import { MailService } from 'src/mail/mail.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto ';
+import { GoogleUserDto } from './dto/google-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -17,22 +21,31 @@ export class AuthService {
     private blacklistService: BlacklistService,
     private usersService: UsersService,
     private tokenService: TokenService,
+    private mailService: MailService
   ) {}
 
   async login(loginDto: LoginDto, @Res() res: Response) {
     const user = await this.validateUser(loginDto);
-    const accessToken = await this.tokenService.generateAccessToken(user);
-    const { refreshToken, hashedToken } = await this.tokenService.generateRefreshToken(user);
-    await this.usersService.updateRefreshToken(user.userID, hashedToken);
+    return this.tokenService.setUserTokens(user, res);
+  }
 
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
-      sameSite: 'strict',
-      path: '/auth/refresh',
-    });
-
-    return res.json({ accessToken, refreshToken });
+  async googleLogin(googleUserDto: GoogleUserDto, @Res() res: Response) {
+    let user = await this.usersService.findByEmail(googleUserDto.email);
+    if (!user) {
+      // Create new user
+      user = await this.usersService.createUser({
+        name: `${googleUserDto.firstName} ${googleUserDto.lastName}`,
+        email: googleUserDto.email,
+        googleID: googleUserDto.sub,
+        provider: 'google',
+        isVerified: true // Google-verified emails are trusted
+      });
+    } else if (!user.googleID) {
+      // Merge existing account with Google
+      user = await this.usersService.linkGoogleAccount(user.id, googleUserDto);
+    }
+  
+    return this.tokenService.setUserTokens(user, res);
   }
 
   async validateUser(loginDto: LoginDto): Promise<any> {
@@ -71,13 +84,15 @@ export class AuthService {
     
     // Delete the refresh token from the user document
     await this.usersService.updateRefreshToken(userID, null);
-    if (role !== Role.CUSTOMER) { // Only blacklist tokens for non-customer roles
-      const expiresIn = decodedToken.exp - Math.floor(Date.now() / 1000);
-      if (expiresIn > 0) { // Blacklist the token if it hasn't expired yet
-        await this.blacklistService.blacklistToken(refreshToken, expiresIn);
-      }
+
+    // Blacklist the token if it hasn't expired yet
+    // * NOTE: Only blacklist tokens for non-customer roles
+    const expiresIn = decodedToken.exp - Math.floor(Date.now() / 1000);
+    if (role !== Role.CUSTOMER && expiresIn > 0) {
+      await this.blacklistService.blacklistToken(refreshToken, expiresIn);
     }
 
+    // Clear the refresh token cookie
     res.clearCookie('refreshToken', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -86,5 +101,40 @@ export class AuthService {
     });
 
     return res.status(200).json({ message: 'Logged out successfully' });
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+    const user = await this.usersService.findByEmail(email);
+    
+    // Always return success to prevent email enumeration
+    if (!user) return { message: 'Reset password email sent' };
+
+    // Generate reset token
+    const { resetToken, hashedToken } = this.tokenService.generateResetToken();
+    const resetExpires = new Date(Date.now() + 3600000); // 1 hour
+
+    // Update the user document with the reset token
+    await this.usersService.setResetToken(user.id, hashedToken, resetExpires);
+
+    // Send the reset password email
+    await this.mailService.sendResetPasswordEmail(email, resetToken);
+    return { message: 'Reset password email sent' };
+  }
+
+  async resetPassword(token: string, resetPasswordDto: ResetPasswordDto) {
+    const user = await this.usersService.findByResetToken(token);
+    if (!user) throw new UnauthorizedException('Invalid reset token');
+
+    // Verify the reset token
+    const decodedToken = this.tokenService.verifyResetToken(token, user.resetToken);
+    if (!decodedToken) throw new UnauthorizedException('Invalid reset token');
+
+    // Update the user's password
+    await this.usersService.setNewPassword(user.id, resetPasswordDto.password);
+
+    // Clear the reset token
+    await this.usersService.clearResetToken(user.id);
+    return { message: 'Password reset successfully' };
   }
 }
