@@ -1,13 +1,7 @@
 <p align="center">
   <img src="./logo.png" width="300" alt="tarkeba-logo" />
 </p>
-
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">Tarkeba is a e-commerce app for selling perfumes 🛍️🌸</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+<p align="center">Tarkeba is an e-commerce app for selling perfumes 🛍️🌸</p>
 
 ## Description
 

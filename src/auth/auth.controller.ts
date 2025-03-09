@@ -11,10 +11,11 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto ';
 
+
 @Controller('auth')
 export class AuthController {
   constructor(
-    private authService: AuthService, 
+    private authService: AuthService,
     private userService: UsersService,
     private tokenService: TokenService,
     private mailService: MailService
