@@ -12,12 +12,11 @@ Key Features:
 - Google OAuth integration for authentication
 - Password reset functionality
 - Role-based access control
-- Product management (CRUD operations)
-- Order processing and management
 - Email notifications for account verification and password reset
+- Mail queue for handling email notifications efficiently
 - Redis integration for caching and session management
 - JWT-based authentication and refresh tokens
-- Comprehensive unit and e2e testing
+- Token blacklisting for enhanced security
 
 This project is a comprehensive solution for building a modern e-commerce platform with a focus on security, scalability, and maintainability.
 
