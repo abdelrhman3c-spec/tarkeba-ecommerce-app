@@ -24,18 +24,14 @@ require('dotenv').config();
 const app = express();
 
 // connected to Data Base
+// connected to Data Base
 mongoose.connect(process.env.MONGO_URL, {
-  useUnifiedTopology: true,
   useNewUrlParser: true,
-  useCreateIndex: true,
-  useFindAndModify: false
-}, (error) => {
-  if (error) {
-    console.log(error);
-  } else {
-    console.log('[nodemon] connected to DB...');
-  }
-});
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000
+})
+
+
 
 require('./config/passport');
 

@@ -22,7 +22,7 @@
     "express": "^4.18.2",
     "express-handlebars": "^5.3.5",
     "express-session": "^1.17.2",
-    "express-validator": "^6.14.2",
+    "express-validator": "^6.15.0",
     "google-translate-api": "^0.1.1",
     "googleapis": "^105.0.0",
     "handlebars": "^4.7.7",

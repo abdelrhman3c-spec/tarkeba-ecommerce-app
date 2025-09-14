@@ -39,6 +39,7 @@ fetch('/admin/categoriesData', {
   });
 
 
+  
   //start page btn
   let startPage = document.querySelector(".start-page");
   startPage.onclick = () => {
